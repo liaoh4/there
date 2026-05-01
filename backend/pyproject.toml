@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "major-compass-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    # Web 框架
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",       # FastAPI 的运行服务器
+
+    # 数据库
+    "sqlalchemy[asyncio]>=2.0",       # ORM，[asyncio] 表示同时安装异步支持
+    "asyncpg>=0.29",                  # PostgreSQL 的异步驱动，SQLAlchemy 底层用它连接数据库
+    "alembic>=1.13",                  # 数据库迁移工具
+
+    # 配置 & 校验
+    "pydantic>=2.7",                  # 数据校验，FastAPI 内部也依赖它
+    "pydantic-settings>=2.3",         # 从环境变量读取配置
+
+    # 任务队列
+    "celery[redis]>=5.4",
+    "redis>=5.0",
+]
+
+[project.optional-dependencies]
+# 只在开发时安装，生产环境不需要
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",                    # 测试时模拟 HTTP 请求
+]
+
+# 告诉 setuptools 代码在 app/ 目录下
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
