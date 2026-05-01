@@ -11,6 +11,8 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.exceptions import SessionAbandonedError, SessionNotFoundError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -143,6 +145,7 @@ async def get_result(
     session = await _get_session_with_responses(session_id, db)
     if session.status != "completed":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Session not completed yet.")
+        # 注：这里保留 HTTPException，因为"未完成"是前端调用时序问题，不是业务异常
     return await _build_result(session, db)
 
 
@@ -151,9 +154,9 @@ async def get_result(
 async def _get_active_session(session_id: uuid.UUID, db: AsyncSession) -> AssessmentSession:
     session = await db.get(AssessmentSession, session_id)
     if not session:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found.")
+        raise SessionNotFoundError(session_id)
     if session.status == "abandoned":
-        raise HTTPException(status.HTTP_410_GONE, detail="Session has been abandoned.")
+        raise SessionAbandonedError(session_id)
     return session
 
 
@@ -168,7 +171,7 @@ async def _get_session_with_responses(session_id: uuid.UUID, db: AsyncSession) -
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found.")
+        raise SessionNotFoundError(session_id)
     return session
 
 
