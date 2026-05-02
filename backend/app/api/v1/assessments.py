@@ -1,26 +1,25 @@
 """
 Assessment endpoints.
 
-POST /sessions            → create a new session, return session_id
-POST /sessions/{id}/responses  → submit answers (idempotent, batchable)
-POST /sessions/{id}/complete   → compute scores + recommendations, return result
-GET  /sessions/{id}/result     → retrieve a previously completed result
+POST /sessions                    → create a new session, return session_id
+POST /sessions/{id}/responses     → submit answers (idempotent, batchable)
+POST /sessions/{id}/complete      → compute scores + recommendations, return result
+GET  /sessions/{id}/result        → retrieve a previously completed result
 """
 
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-
-from app.exceptions import SessionAbandonedError, SessionNotFoundError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.database import get_db
-from app.models.assessment import AssessmentRecommendation, AssessmentResponse, AssessmentSession
+from app.exceptions import InsufficientResponsesError, SessionAbandonedError, SessionNotFoundError
+from app.models.assessment import AssessmentSession
 from app.models.major import Major
+from app.repositories import assessment_repo, major_repo
 from app.schemas.session import (
     AssessmentResult,
     MajorSummary,
@@ -29,7 +28,7 @@ from app.schemas.session import (
     SessionCreated,
     SubmitResponsesRequest,
 )
-from app.services.scoring import compute_riasec, rank_majors
+from app.services.scoring import RIASEC_QUESTION_MAP, RiasecScores, compute_riasec, rank_majors
 
 router = APIRouter(prefix="/sessions", tags=["assessments"])
 settings = get_settings()
@@ -38,9 +37,7 @@ settings = get_settings()
 @router.post("", response_model=SessionCreated, status_code=status.HTTP_201_CREATED)
 async def create_session(db: AsyncSession = Depends(get_db)) -> SessionCreated:
     """Start a new assessment session. Call this before showing the first question."""
-    session = AssessmentSession()
-    db.add(session)
-    await db.flush()
+    session = await assessment_repo.create_session(db)
     return SessionCreated(session_id=session.id, algorithm_version=session.algorithm_version)
 
 
@@ -54,32 +51,13 @@ async def submit_responses(
     Batch-save answers. Safe to call multiple times (upsert by question_id).
     Allows the frontend to persist progress incrementally.
     """
-    session = await _get_active_session(session_id, db)
+    session = await assessment_repo.get_session(db, session_id)
+    if not session:
+        raise SessionNotFoundError(session_id)
+    if session.status == "abandoned":
+        raise SessionAbandonedError(session_id)
 
-    # Load existing responses to upsert
-    existing = {
-        r.question_id: r
-        for r in (
-            await db.execute(
-                select(AssessmentResponse).where(AssessmentResponse.session_id == session_id)
-            )
-        ).scalars()
-    }
-
-    for item in body.responses:
-        if item.question_id in existing:
-            existing[item.question_id].answer = item.answer
-            existing[item.question_id].answered_at = item.answered_at
-        else:
-            db.add(
-                AssessmentResponse(
-                    session_id=session_id,
-                    question_id=item.question_id,
-                    module=item.module,
-                    answer=item.answer,
-                    answered_at=item.answered_at,
-                )
-            )
+    await assessment_repo.upsert_responses(db, session_id, body.responses)
 
 
 @router.post("/{session_id}/complete", response_model=AssessmentResult)
@@ -91,49 +69,41 @@ async def complete_session(
     Compute RIASEC scores and major recommendations, persist them, mark session completed.
     Idempotent: calling again on a completed session returns the cached result.
     """
-    session = await _get_session_with_responses(session_id, db)
+    session = await assessment_repo.get_session_with_relations(db, session_id)
+    if not session:
+        raise SessionNotFoundError(session_id)
 
-    # Return cached result if already completed
+    # 幂等：已完成直接返回缓存结果
     if session.status == "completed":
-        return await _build_result(session, db)
+        major_map = await _load_major_map(db, session)
+        return _build_result(session, major_map)
 
-    # ── Compute scores ────────────────────────────────────────────────────
+    # ── 校验所有题目已作答 ────────────────────────────────────────────────
     riasec_responses = {
         r.question_id: r.answer
         for r in session.responses
         if r.module == "riasec"
     }
+    if len(riasec_responses) < len(RIASEC_QUESTION_MAP):
+        raise InsufficientResponsesError(
+            answered=len(riasec_responses),
+            required=len(RIASEC_QUESTION_MAP),
+        )
+
+    # ── 计算 RIASEC 分数 ──────────────────────────────────────────────────
     scores = compute_riasec(riasec_responses)
 
-    # Persist scores on the session
-    session.score_r = scores.R
-    session.score_i = scores.I
-    session.score_a = scores.A
-    session.score_s = scores.S
-    session.score_e = scores.E
-    session.score_c = scores.C
-
-    # ── Rank majors ───────────────────────────────────────────────────────
-    majors = (await db.execute(select(Major).where(Major.is_active == True))).scalars().all()  # noqa: E712
+    # ── 专业排名 ──────────────────────────────────────────────────────────
+    majors = await major_repo.get_active_majors(db)
     profiles = [(str(m.id), m.riasec_vector) for m in majors]
     matches = rank_majors(scores, profiles, top_n=settings.TOP_N_RECOMMENDATIONS)
 
+    # major_map 在循环外准备好，save_completion 里不会产生 N+1 查询
     major_map = {str(m.id): m for m in majors}
-    for match in matches:
-        db.add(
-            AssessmentRecommendation(
-                session_id=session_id,
-                major_id=uuid.UUID(match.major_id),
-                rank=match.rank,
-                similarity_score=match.similarity,
-            )
-        )
 
-    session.status = "completed"
-    session.completed_at = datetime.now(UTC)
-    await db.flush()
+    await assessment_repo.save_completion(db, session, scores, matches, major_map)
 
-    return await _build_result(session, db)
+    return _build_result(session, major_map)
 
 
 @router.get("/{session_id}/result", response_model=AssessmentResult)
@@ -142,60 +112,59 @@ async def get_result(
     db: AsyncSession = Depends(get_db),
 ) -> AssessmentResult:
     """Retrieve results for a completed session (e.g. for share links)."""
-    session = await _get_session_with_responses(session_id, db)
+    session = await assessment_repo.get_session_with_relations(db, session_id)
+    if not session:
+        raise SessionNotFoundError(session_id)
     if session.status != "completed":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Session not completed yet.")
-        # 注：这里保留 HTTPException，因为"未完成"是前端调用时序问题，不是业务异常
-    return await _build_result(session, db)
+
+    major_map = await _load_major_map(db, session)
+    return _build_result(session, major_map)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-async def _get_active_session(session_id: uuid.UUID, db: AsyncSession) -> AssessmentSession:
-    session = await db.get(AssessmentSession, session_id)
-    if not session:
-        raise SessionNotFoundError(session_id)
-    if session.status == "abandoned":
-        raise SessionAbandonedError(session_id)
-    return session
-
-
-async def _get_session_with_responses(session_id: uuid.UUID, db: AsyncSession) -> AssessmentSession:
+async def _load_major_map(db: AsyncSession, session: AssessmentSession) -> dict[str, Major]:
+    """
+    按推荐列表里的 major_id，一次性查出所有需要的专业。
+    只查这个 session 实际推荐的专业，不查全表。
+    """
+    major_ids = [rec.major_id for rec in session.recommendations]
     result = await db.execute(
-        select(AssessmentSession)
-        .where(AssessmentSession.id == session_id)
-        .options(
-            selectinload(AssessmentSession.responses),
-            selectinload(AssessmentSession.recommendations),
-        )
+        select(Major).where(Major.id.in_(major_ids))
     )
-    session = result.scalar_one_or_none()
-    if not session:
-        raise SessionNotFoundError(session_id)
-    return session
+    return {str(m.id): m for m in result.scalars()}
 
 
-async def _build_result(session: AssessmentSession, db: AsyncSession) -> AssessmentResult:
-    scores = RiasecScoresOut(
+def _build_result(session: AssessmentSession, major_map: dict[str, Major]) -> AssessmentResult:
+    """
+    把 session 里存的分数和推荐记录组装成 API 响应。
+    major_map 由调用方传入，这里不查数据库，彻底消除 N+1。
+    """
+    # 用 RiasecScores 计算 dominant_type 和 top_two，不重复写逻辑
+    scores_obj = RiasecScores(
         R=session.score_r or 0,
         I=session.score_i or 0,
         A=session.score_a or 0,
         S=session.score_s or 0,
         E=session.score_e or 0,
         C=session.score_c or 0,
-        dominant_type=max(
-            {"R": session.score_r or 0, "I": session.score_i or 0, "A": session.score_a or 0,
-             "S": session.score_s or 0, "E": session.score_e or 0, "C": session.score_c or 0},
-            key=lambda k: {"R": session.score_r or 0, "I": session.score_i or 0,
-                           "A": session.score_a or 0, "S": session.score_s or 0,
-                           "E": session.score_e or 0, "C": session.score_c or 0}[k],
-        ),
-        top_two=("R", "I"),  # simplified; use scoring.RiasecScores.top_two in full impl
+    )
+
+    scores = RiasecScoresOut(
+        R=scores_obj.R,
+        I=scores_obj.I,
+        A=scores_obj.A,
+        S=scores_obj.S,
+        E=scores_obj.E,
+        C=scores_obj.C,
+        dominant_type=scores_obj.dominant_type,
+        top_two=scores_obj.top_two,
     )
 
     recs = []
     for rec in sorted(session.recommendations, key=lambda r: r.rank):
-        major = await db.get(Major, rec.major_id)
+        major = major_map.get(str(rec.major_id))
         if major:
             recs.append(
                 RecommendationItem(

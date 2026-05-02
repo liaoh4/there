@@ -1,8 +1,8 @@
 """
-Scoring service.
+Scoring service — pure functions, no DB or HTTP imports.
 
-Kept as pure functions so it can be tested without a DB connection.
-The API layer calls these and then persists the results.
+Pure functions 的好处：单元测试不需要启动数据库或 HTTP 服务器，
+直接调用函数传入数据，验证输出即可。
 """
 
 import math
@@ -11,7 +11,7 @@ from typing import TypeAlias
 
 RiasecVector: TypeAlias = list[float]
 
-# Question → RIASEC dimension mapping
+# 题目编号 → RIASEC 维度的映射
 RIASEC_QUESTION_MAP: dict[str, str] = {
     "r1": "R", "r2": "R",
     "i1": "I", "i2": "I",
@@ -21,8 +21,8 @@ RIASEC_QUESTION_MAP: dict[str, str] = {
     "c1": "C", "c2": "C",
 }
 
-# Questions per dimension × max Likert = denominator for normalisation
-RIASEC_MAX_RAW = 10  # 2 questions × 5
+QUESTIONS_PER_DIM = 2        # 每个维度有几道题
+RIASEC_MAX_RAW = QUESTIONS_PER_DIM * 5  # 满分原始分 = 题数 × 最高选项
 
 
 @dataclass(frozen=True)
@@ -38,16 +38,18 @@ class RiasecScores:
         return [self.R, self.I, self.A, self.S, self.E, self.C]
 
     def as_normalised(self) -> RiasecVector:
-        """Return 0-1 normalised vector for cosine similarity."""
+        """返回 0-1 归一化向量，供余弦相似度计算使用。"""
         return [v / 100 for v in self.as_vector()]
 
     @property
     def dominant_type(self) -> str:
+        """得分最高的维度。"""
         dims = {"R": self.R, "I": self.I, "A": self.A, "S": self.S, "E": self.E, "C": self.C}
         return max(dims, key=lambda k: dims[k])
 
     @property
     def top_two(self) -> tuple[str, str]:
+        """得分最高的两个维度，从高到低排列。"""
         dims = {"R": self.R, "I": self.I, "A": self.A, "S": self.S, "E": self.E, "C": self.C}
         sorted_dims = sorted(dims, key=lambda k: dims[k], reverse=True)
         return sorted_dims[0], sorted_dims[1]
@@ -55,7 +57,8 @@ class RiasecScores:
 
 def compute_riasec(responses: dict[str, int]) -> RiasecScores:
     """
-    Convert raw question responses → normalised 0-100 RIASEC scores.
+    把答题结果转换为 0-100 的 RIASEC 六维分数。
+    调用方需确保所有题目都已作答，此函数不做题目完整性校验。
 
     Args:
         responses: {question_id: answer (1-5)}
@@ -80,7 +83,7 @@ class MajorMatch:
 
 
 def cosine_similarity(a: RiasecVector, b: RiasecVector) -> float:
-    """Standard cosine similarity between two vectors."""
+    """两个向量的余弦相似度，值域 0-1，越接近 1 表示方向越相似。"""
     dot = sum(x * y for x, y in zip(a, b))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
@@ -91,19 +94,16 @@ def cosine_similarity(a: RiasecVector, b: RiasecVector) -> float:
 
 def rank_majors(
     user_scores: RiasecScores,
-    major_profiles: list[tuple[str, RiasecVector]],  # [(major_id, [R,I,A,S,E,C]), ...]
+    major_profiles: list[tuple[str, RiasecVector]],
     top_n: int = 8,
 ) -> list[MajorMatch]:
     """
-    Rank majors by cosine similarity to user's RIASEC vector.
+    用余弦相似度对专业排名，返回与用户 RIASEC 向量最接近的 top_n 个专业。
 
     Args:
-        user_scores:    computed RIASEC scores
-        major_profiles: list of (major_id, normalised_riasec_vector) tuples
-        top_n:          how many results to return
-
-    Returns:
-        Ranked list of MajorMatch, highest similarity first.
+        user_scores:    用户的 RIASEC 分数
+        major_profiles: [(major_id, [R,I,A,S,E,C]), ...]
+        top_n:          返回前几名
     """
     user_vec = user_scores.as_normalised()
 

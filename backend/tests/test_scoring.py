@@ -33,10 +33,6 @@ class TestComputeRiasec:
         scores = compute_riasec(responses)
         assert scores.R == 100  # only r1 + r2 counted
 
-    def test_missing_questions_default_to_3(self):
-        # r1 answered (5), r2 missing → raw R = 5 + 3 = 8 → 80
-        scores = compute_riasec({"r1": 5})
-        assert scores.R == 80
 
     def test_dominant_type(self):
         responses = {f"{t.lower()}{i}": (5 if t == "I" else 1) for t in "RIASEC" for i in [1, 2]}
@@ -47,6 +43,12 @@ class TestComputeRiasec:
         responses = {f"{t.lower()}{i}": (5 if t in ("I", "C") else 1) for t in "RIASEC" for i in [1, 2]}
         scores = compute_riasec(responses)
         assert set(scores.top_two) == {"I", "C"}
+
+    
+    def test_unanswered_questions_count_as_zero(self):
+        responses = {"r1": 5}  # r2 missing, counts as 0
+        scores = compute_riasec(responses)
+        assert scores.R == 50  # raw = 5, normalised = 5/10 × 100 = 50
 
 
 class TestCosineSimilarity:
