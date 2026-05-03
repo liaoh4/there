@@ -19,7 +19,7 @@ class ResponseItem(BaseModel):
     question_id: str                        # 题目编号，如 "r1"、"i2"
     module: str                             # 所属模块，目前只有 "riasec"
     answer: int = Field(ge=1, le=5)         # Likert 分值，必须在 1-5 之间
-    answered_at: datetime                   # 答题时间，由前端记录
+    answered_at: datetime | None = None     # 答题时间，可选
 
 
 class SubmitResponsesRequest(BaseModel):

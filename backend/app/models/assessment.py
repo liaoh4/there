@@ -63,7 +63,6 @@ class AssessmentResponse(UUIDMixin, Base):
     question_id: Mapped[str] = mapped_column(String(20), nullable=False)
     module: Mapped[str] = mapped_column(String(20), nullable=False)  # riasec | ability | values
     answer: Mapped[int] = mapped_column(SmallInteger, nullable=False)  # 1-5
-    answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     session: Mapped["AssessmentSession"] = relationship(back_populates="responses")
 

@@ -69,7 +69,6 @@ async def upsert_responses(
     for item in items:
         if item.question_id in existing:
             existing[item.question_id].answer = item.answer
-            existing[item.question_id].answered_at = item.answered_at
         else:
             db.add(
                 AssessmentResponse(
@@ -77,7 +76,6 @@ async def upsert_responses(
                     question_id=item.question_id,
                     module=item.module,
                     answer=item.answer,
-                    answered_at=item.answered_at,
                 )
             )
 

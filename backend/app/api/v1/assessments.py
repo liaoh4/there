@@ -103,6 +103,7 @@ async def complete_session(
 
     await assessment_repo.save_completion(db, session, scores, matches, major_map)
 
+    session = await assessment_repo.get_session_with_relations(db, session_id)
     return _build_result(session, major_map)
 
 
