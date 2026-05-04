@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
+from app.config import get_settings
 from app.exceptions import (
     InsufficientResponsesError,
     MajorCompassError,
@@ -23,7 +24,7 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=get_settings().ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
