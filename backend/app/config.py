@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # 推荐专业数量
-    TOP_N_RECOMMENDATIONS: int = 8
+    TOP_N_RECOMMENDATIONS: int = 4
 
     # 跨域白名单：允许哪些前端地址访问后端
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]

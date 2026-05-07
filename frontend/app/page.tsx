@@ -7,9 +7,9 @@ export default function HomePage() {
 
         {/* 标题 */}
         <div className="space-y-3">
-          <h1 className="text-4xl font-bold text-gray-800">专业罗盘</h1>
+          <h1 className="text-4xl font-bold text-gray-800">我的专业</h1>
           <p className="text-gray-500 text-lg">
-            基于 RIASEC 职业兴趣理论
+            兴趣匹配 × RIASEC 分析
             <br />
             帮你找到最适合的大学专业
           </p>
@@ -21,19 +21,15 @@ export default function HomePage() {
           <ul className="space-y-2 text-sm text-gray-500">
             <li className="flex items-start gap-2">
               <span className="text-indigo-400 mt-0.5">•</span>
-              共 12 道题，约需 3 分钟
+              分析阶段：24 道题测量你的 RIASEC 职业性格类型
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-400 mt-0.5">•</span>
-              根据你的兴趣倾向，匹配最适合的专业方向
+              综合两项结果推荐最匹配的专业，并提供详细的兴趣与能力分析报告
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-400 mt-0.5">•</span>
-              完全匿名，无需注册登录
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-indigo-400 mt-0.5">•</span>
-              结果页可保存链接，随时查看
+              完全匿名，无需注册登录，结果页可保存链接
             </li>
           </ul>
         </div>
@@ -46,7 +42,7 @@ export default function HomePage() {
           开始测评
         </Link>
 
-        <p className="text-xs text-gray-300">Major Compass v1</p>
+        <p className="text-xs text-gray-300">Major Compass v2</p>
       </div>
     </main>
   )

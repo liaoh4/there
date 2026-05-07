@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
+import CategoryCard from "@/components/interest/CategoryCard"
 import QuestionCard from "@/components/assessment/QuestionCard"
 import Progress from "@/components/ui/Progress"
 import { useAssessment } from "@/hooks/useAssessment"
@@ -11,15 +12,17 @@ export default function AssessmentPage() {
   const router = useRouter()
   const {
     phase,
-    currentIndex,
+    isProcessing,
+    currentRound,
     currentQuestion,
+    questionIndex,
     totalQuestions,
     result,
     errorMsg,
+    selectCategory,
     answer,
   } = useAssessment()
 
-  // 测评完成后跳转到结果页
   useEffect(() => {
     if (phase === "done" && result) {
       router.push(`/results/${result.session_id}`)
@@ -50,19 +53,65 @@ export default function AssessmentPage() {
     )
   }
 
-  return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-lg">
-        <Progress current={currentIndex + 1} total={totalQuestions} />
-        <div className="mt-10">
-          <QuestionCard
-            question={currentQuestion}
-            index={currentIndex}
-            total={totalQuestions}
-            onAnswer={answer}
-          />
+  // Interest selection phase
+  if (phase === "interest" && currentRound) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
+        <div className="w-full max-w-2xl">
+          <div className="text-center mb-6">
+            <p className="text-xs text-indigo-400 font-medium mb-1">
+              第一阶段：兴趣探索 · 第 {currentRound.round_number} / 8 轮
+            </p>
+            <h1 className="text-xl font-bold text-gray-800">最感兴趣的专业？</h1>
+            <p className="text-sm text-gray-400 mt-1">
+              从以下专业中，选择你最感兴趣的一个
+            </p>
+          </div>
+
+          {isProcessing && (
+            <p className="text-center text-sm text-indigo-400 mb-4">加载下一轮...</p>
+          )}
+
+          <div className="flex flex-col gap-3">
+            {currentRound.options.map((opt) => (
+              <CategoryCard
+                key={opt.category_code}
+                option={opt}
+                onSelect={selectCategory}
+                disabled={isProcessing}
+              />
+            ))}
+          </div>
+
+          <p className="text-center text-xs text-gray-300 mt-6">
+            选完 8 轮进入第二阶段
+          </p>
         </div>
-      </div>
-    </main>
-  )
+      </main>
+    )
+  }
+
+  // RIASEC phase
+  if (phase === "riasec" && currentQuestion) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-lg">
+          <div className="text-center mb-2">
+            <p className="text-xs text-indigo-400 font-medium">第二阶段：性格与能力分析</p>
+          </div>
+          <Progress current={questionIndex + 1} total={totalQuestions} />
+          <div className="mt-10">
+            <QuestionCard
+              question={currentQuestion}
+              index={questionIndex}
+              total={totalQuestions}
+              onAnswer={answer}
+            />
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  return null
 }

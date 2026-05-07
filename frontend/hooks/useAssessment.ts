@@ -2,57 +2,100 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { completeSession, createSession, submitResponses } from "@/lib/api"
-import { QUESTIONS } from "@/lib/questions"
-import type { AssessmentResult } from "@/lib/types"
+import {
+  completeSession,
+  createSession,
+  getNextInterestRound,
+  submitInterestRound,
+  submitResponses,
+} from "@/lib/api"
+import { drawQuestions, type Question } from "@/lib/questions"
+import type { AssessmentResult, InterestRoundResponse } from "@/lib/types"
 
-type Answers = Record<string, number>  // { "r1": 4, "i1": 5, ... }
-
-type Phase = "loading" | "answering" | "submitting" | "done" | "error"
+type Phase = "loading" | "interest" | "riasec" | "submitting" | "done" | "error"
 
 export function useAssessment() {
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [answers, setAnswers] = useState<Answers>({})
   const [phase, setPhase] = useState<Phase>("loading")
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  // Interest phase
+  const [currentRound, setCurrentRound] = useState<InterestRoundResponse | null>(null)
+
+  // RIASEC phase
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, number>>({})
+
   const [result, setResult] = useState<AssessmentResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const creatingRef = useRef(false)
 
-  // 组件加载时自动创建 session
   useEffect(() => {
     if (creatingRef.current) return
     creatingRef.current = true
 
-    createSession()
-      .then((s) => {
-        setSessionId(s.session_id)
-        setPhase("answering")
-      })
-      .catch((e: Error) => {
-        setErrorMsg(e.message)
+    async function init() {
+      try {
+        const session = await createSession()
+        const firstRound = await getNextInterestRound(session.session_id)
+        setSessionId(session.session_id)
+        setCurrentRound(firstRound)
+        setPhase("interest")
+      } catch (e) {
+        setErrorMsg((e as Error).message)
         setPhase("error")
-      })
+      }
+    }
+
+    init()
   }, [])
 
-  // 用户选择一个答案
+  const selectCategory = useCallback(
+    async (categoryCode: string) => {
+      if (!sessionId || !currentRound || isProcessing) return
+      setIsProcessing(true)
+      try {
+        const res = await submitInterestRound(sessionId, {
+          round_number: currentRound.round_number,
+          selected_category_code: categoryCode,
+          presented_category_codes: currentRound.options.map((o) => o.category_code),
+          presented_sample_codes: currentRound.options.map((o) => o.sample.code),
+        })
+        if (res.should_stop) {
+          setQuestions(drawQuestions())
+          setQuestionIndex(0)
+          setAnswers({})
+          setPhase("riasec")
+        } else if (res.next_round) {
+          setCurrentRound(res.next_round)
+        }
+      } catch (e) {
+        setErrorMsg((e as Error).message)
+        setPhase("error")
+      } finally {
+        setIsProcessing(false)
+      }
+    },
+    [sessionId, currentRound, isProcessing]
+  )
+
   const answer = useCallback(
     async (value: number) => {
-      if (!sessionId || phase !== "answering") return
+      if (!sessionId || phase !== "riasec") return
 
-      const question = QUESTIONS[currentIndex]
+      const question = questions[questionIndex]
       const newAnswers = { ...answers, [question.id]: value }
       setAnswers(newAnswers)
 
-      const isLast = currentIndex === QUESTIONS.length - 1
+      const isLast = questionIndex === questions.length - 1
 
       if (!isLast) {
-        setCurrentIndex(currentIndex + 1)
+        setQuestionIndex(questionIndex + 1)
         return
       }
 
-      // 最后一题：提交所有答案，完成测评
       setPhase("submitting")
       try {
         const responses = Object.entries(newAnswers).map(([qid, ans]) => ({
@@ -69,16 +112,19 @@ export function useAssessment() {
         setPhase("error")
       }
     },
-    [sessionId, phase, currentIndex, answers]
+    [sessionId, phase, questions, questionIndex, answers]
   )
 
   return {
     phase,
-    currentIndex,
-    currentQuestion: QUESTIONS[currentIndex],
-    totalQuestions: QUESTIONS.length,
+    isProcessing,
+    currentRound,
+    currentQuestion: questions[questionIndex] ?? null,
+    questionIndex,
+    totalQuestions: questions.length,
     result,
     errorMsg,
+    selectCategory,
     answer,
   }
 }

@@ -1,0 +1,19 @@
+类别编码,类别名称,ISCED英文,R,I,A,S,E,C,主导维度
+02,艺术与人文,Arts and Humanities,0.20,0.55,0.85,0.45,0.30,0.20,A
+03,社会科学（含教育与体育）,Social Sciences,0.25,0.65,0.40,0.75,0.40,0.40,I+S
+04,商业管理与法律,Business Administration and Law,0.15,0.50,0.25,0.50,0.80,0.70,E+C
+05,自然科学与数学,Natural Sciences Mathematics and Statistics,0.45,0.90,0.25,0.20,0.20,0.55,I
+06,信息与通信技术（硬件）,Information and Communication Technologies,0.70,0.75,0.30,0.20,0.30,0.60,R+I
+07A,机械·制造·自动化,Mechanical Manufacturing Automation,0.90,0.65,0.20,0.20,0.30,0.55,R
+07B,电气·能源·核,Electrical Energy Nuclear,0.80,0.70,0.15,0.20,0.30,0.55,R+I
+07C,土木·水利·测绘,Civil Hydraulic Surveying,0.85,0.55,0.20,0.25,0.30,0.65,R+C
+07D,建筑·规划·景观,Architecture Planning Landscape,0.65,0.50,0.75,0.40,0.40,0.55,A+R
+07E,化工·材料·轻工,Chemical Materials Light Industry,0.80,0.75,0.25,0.20,0.20,0.60,R+I
+07F,交通·物流·安全,Transportation Logistics Safety,0.70,0.55,0.20,0.35,0.45,0.70,R+C
+07G,航空·海洋,Aerospace Ocean Engineering,0.85,0.75,0.25,0.20,0.40,0.50,R+I
+07H,环境·资源,Environment Resources,0.75,0.75,0.25,0.45,0.25,0.50,R+I
+07I,生命工程,Life Engineering,0.70,0.75,0.20,0.50,0.25,0.50,I+R
+07J,国防安全,Public Security Defense,0.75,0.55,0.20,0.65,0.55,0.65,R+S
+08,农林渔业与兽医,Agriculture Forestry Fisheries Veterinary,0.80,0.65,0.25,0.50,0.25,0.40,R
+09,医学与健康,Health and Welfare,0.55,0.80,0.20,0.80,0.30,0.65,I+S
+11,计算机科学（含交叉工程）,Computer Science,0.55,0.85,0.35,0.25,0.45,0.70,I+C
