@@ -1,18 +1,9 @@
-"""
-Assessment session design:
-- A session is created the moment the user starts (even before answering).
-- Responses are written incrementally so partial progress can be restored.
-- Scores are computed and cached in the session row on completion.
-- Recommendations are stored so we can A/B test algorithm changes
-  without re-running history.
-"""
-
 import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, SmallInteger, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -21,15 +12,10 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 class AssessmentSession(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "assessment_sessions"
 
-    # algorithm version — lets us re-run scoring when weights change
-    algorithm_version: Mapped[str] = mapped_column(String(10), default="1.0", nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(20), default="in_progress", nullable=False
-    )  # in_progress | completed | abandoned
+    algorithm_version: Mapped[str] = mapped_column(String(10), default="2.0", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="in_progress", nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    # ── Cached RIASEC scores (0-100) ─────────────────────────────────────
-    # NULL until session is completed
     score_r: Mapped[int | None] = mapped_column(SmallInteger)
     score_i: Mapped[int | None] = mapped_column(SmallInteger)
     score_a: Mapped[int | None] = mapped_column(SmallInteger)
@@ -37,12 +23,16 @@ class AssessmentSession(UUIDMixin, TimestampMixin, Base):
     score_e: Mapped[int | None] = mapped_column(SmallInteger)
     score_c: Mapped[int | None] = mapped_column(SmallInteger)
 
-    # ── Relationships ─────────────────────────────────────────────────────
+    interest_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     responses: Mapped[list["AssessmentResponse"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
     )
     recommendations: Mapped[list["AssessmentRecommendation"]] = relationship(
         back_populates="session", cascade="all, delete-orphan", order_by="AssessmentRecommendation.rank"
+    )
+    interest_rounds: Mapped[list["InterestRound"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="InterestRound.round_number"
     )
 
     @property
@@ -52,8 +42,6 @@ class AssessmentSession(UUIDMixin, TimestampMixin, Base):
 
 
 class AssessmentResponse(UUIDMixin, Base):
-    """One row per question answered. Allows incremental saving and auditing."""
-
     __tablename__ = "assessment_responses"
     __table_args__ = (UniqueConstraint("session_id", "question_id"),)
 
@@ -61,24 +49,38 @@ class AssessmentResponse(UUIDMixin, Base):
         UUID(as_uuid=True), ForeignKey("assessment_sessions.id", ondelete="CASCADE"), nullable=False
     )
     question_id: Mapped[str] = mapped_column(String(20), nullable=False)
-    module: Mapped[str] = mapped_column(String(20), nullable=False)  # riasec | ability | values
-    answer: Mapped[int] = mapped_column(SmallInteger, nullable=False)  # 1-5
+    module: Mapped[str] = mapped_column(String(20), nullable=False)
+    answer: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
     session: Mapped["AssessmentSession"] = relationship(back_populates="responses")
 
 
-class AssessmentRecommendation(UUIDMixin, Base):
-    """Persisted ranked recommendations per session."""
+class InterestRound(UUIDMixin, Base):
+    __tablename__ = "interest_rounds"
+    __table_args__ = (UniqueConstraint("session_id", "round_number", name="uq_interest_session_round"),)
 
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assessment_sessions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    round_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    presented_category_codes: Mapped[list] = mapped_column(JSONB, nullable=False)
+    presented_sample_codes: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    selected_category_code: Mapped[str] = mapped_column(String(10), nullable=False)
+
+    session: Mapped["AssessmentSession"] = relationship(back_populates="interest_rounds")
+
+
+class AssessmentRecommendation(UUIDMixin, Base):
     __tablename__ = "assessment_recommendations"
 
     session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("assessment_sessions.id", ondelete="CASCADE"), nullable=False
     )
-    major_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("majors.id"), nullable=False
-    )
+    major_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("majors.id"), nullable=False)
     rank: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     similarity_score: Mapped[Decimal] = mapped_column(nullable=False)
+    interest_score: Mapped[Decimal | None] = mapped_column(nullable=True)
+    combined_score: Mapped[Decimal | None] = mapped_column(nullable=True)
+    is_conflict: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     session: Mapped["AssessmentSession"] = relationship(back_populates="recommendations")
