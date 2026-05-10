@@ -41,7 +41,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       ENV: development
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-in-prod}
-      ALLOWED_ORIGINS: http://localhost:3000
+      ALLOWED_ORIGINS: '["http://localhost:3000"]'
+
     volumes:
       - ./backend:/app          # hot reload in dev
     ports:
@@ -51,8 +52,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
+    
   # ── Background workers ────────────────────────────────────────────────────
   worker:
     build:
@@ -77,6 +77,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     environment:
+      INTERNAL_API_URL: http://backend:8000
       NEXT_PUBLIC_API_URL: http://localhost:8000
     volumes:
       - ./frontend:/app

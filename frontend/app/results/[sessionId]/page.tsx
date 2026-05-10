@@ -38,7 +38,7 @@ export default async function ResultsPage({ params }: Props) {
   let result
   try {
     result = await getResult(sessionId)
-  } catch {
+  } catch{
     notFound()
   }
 

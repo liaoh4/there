@@ -7,10 +7,13 @@ import type {
   SessionCreated,
 } from "./types"
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const baseUrl = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+  console.log('BASE_URL:', baseUrl)
+  
+  const res = await fetch(`${baseUrl}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   })
@@ -43,7 +46,8 @@ export async function submitResponses(
   sessionId: string,
   responses: ResponseItem[]
 ): Promise<void> {
-  await fetch(`${BASE_URL}/api/v1/sessions/${sessionId}/responses`, {
+  const baseUrl = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+  await fetch(`${baseUrl}/api/v1/sessions/${sessionId}/responses`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ responses }),
