@@ -23,6 +23,9 @@ dependencies = [
     # 任务队列
     "celery[redis]>=5.4",
     "redis>=5.0",
+
+    #deepseek api
+    "openai>=1.0",
 ]
 
 [project.optional-dependencies]

@@ -11,8 +11,6 @@ import type {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const baseUrl = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-  console.log('BASE_URL:', baseUrl)
-  
   const res = await fetch(`${baseUrl}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,

@@ -1,13 +1,13 @@
 import uuid
+from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, String, UniqueConstraint, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
-
 
 class AssessmentSession(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "assessment_sessions"
@@ -34,6 +34,7 @@ class AssessmentSession(UUIDMixin, TimestampMixin, Base):
     interest_rounds: Mapped[list["InterestRound"]] = relationship(
         back_populates="session", cascade="all, delete-orphan", order_by="InterestRound.round_number"
     )
+    ai_interpretation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     @property
     def riasec_vector(self) -> list[int] | None:

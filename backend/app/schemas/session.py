@@ -101,3 +101,4 @@ class AssessmentResult(BaseModel):
     interest_scores: dict[str, float] | None = None
     recommendations: list[RecommendationItem]
     completed_at: datetime
+    ai_interpretation: str | None = None

@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.interpretation import generate_interpretation
 from app.config import get_settings
 from app.database import get_db
 from app.exceptions import InsufficientResponsesError, SessionAbandonedError, SessionNotFoundError
@@ -258,7 +259,27 @@ async def get_result(
 
     major_map = await _load_major_map(db, session)
     sub_major_map = await _load_sub_major_map(db, major_map)
-    return _build_result(session, major_map, sub_major_map)
+    riasec_scores = {
+        "R": session.score_r or 0,
+        "I": session.score_i or 0,
+        "A": session.score_a or 0,
+        "S": session.score_s or 0,
+        "E": session.score_e or 0,
+        "C": session.score_c or 0,
+    }
+    recommendations = [
+    {"major": {"name": major_map[str(rec.major_id)].name}}
+    for rec in session.recommendations
+    if str(rec.major_id) in major_map
+]
+    if not session.ai_interpretation:
+        session.ai_interpretation = await generate_interpretation(
+            riasec_scores,
+            recommendations,
+            interest_scores=session.interest_scores
+        )
+        await db.commit()
+    return _build_result(session, major_map, sub_major_map,)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -328,4 +349,5 @@ def _build_result(
         interest_scores=session.interest_scores,
         recommendations=recs,
         completed_at=session.completed_at or datetime.now(UTC),
+        ai_interpretation=session.ai_interpretation,
     )

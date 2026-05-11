@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # Neo4j（v2 用，现在不设置也不会报错）
     NEO4J_URL: str = ""
 
+    # deep seek api
+    DEEPSEEK_API_KEY: str = ""
+
     # 告诉 pydantic-settings 去哪里读配置
     # env_file：读取 .env 文件
     # extra="ignore"：.env 里有多余的变量时忽略，不报错
