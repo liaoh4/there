@@ -5,6 +5,7 @@ import RiasecRadar from "@/components/results/RiasecRadar"
 import { getResult } from "@/lib/api"
 import { DIMENSION_MAP } from "@/lib/riasec"
 import type { RiasecDimension } from "@/lib/types"
+import  AIInterpretation from "@/components/results/AIInterpretation"
 
 // Maps for interest category names
 const INTEREST_CATEGORY_NAMES: Record<string, string> = {
@@ -42,7 +43,7 @@ export default async function ResultsPage({ params }: Props) {
     notFound()
   }
 
-  const { riasec_scores, recommendations, interest_scores } = result
+  const { riasec_scores, recommendations, interest_scores , ai_interpretation } = result
   const dominant = DIMENSION_MAP[riasec_scores.dominant_type as RiasecDimension]
   const topTwo = riasec_scores.top_two.map((d) => DIMENSION_MAP[d as RiasecDimension])
 
@@ -138,6 +139,9 @@ export default async function ResultsPage({ params }: Props) {
           </div>
         </div>
 
+        {/* AI解读 */}
+        {ai_interpretation && <AIInterpretation interpretation={ai_interpretation} />}
+      
       </div>
     </main>
   )

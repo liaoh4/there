@@ -6,6 +6,14 @@ client = AsyncOpenAI(
     api_key = settings.DEEPSEEK_API_KEY,
     base_url = "https://api.deepseek.com"
 )
+RIASEC_DIMENSIONS = {
+    "R": "现实型",
+    "I": "研究型",
+    "A": "艺术型",
+    "S": "社会型",
+    "E": "企业型",
+    "C": "常规型"
+}
 
 INTEREST_CATEGORY_NAMES = {
   "02": "艺术与人文",
@@ -32,24 +40,23 @@ def build_prompt(riasec_scores: dict, recommendations: list, interest_scores: di
 
     interst_lists = [(a,b) for a,b in interest_scores.items()]
     interst_lists.sort(key=lambda x: x[1], reverse=True)
-    top_interests = [f"{INTEREST_CATEGORY_NAMES.get(code, code)}: {score:.2f}" for code, score in interst_lists[:3]]
+    top_interests = [f"{INTEREST_CATEGORY_NAMES.get(code, code)}" for code , _ in interst_lists[:3]]
     recommended_majors = [rec['major']['name'] for rec in recommendations]
+    riasec_lists = sorted(riasec_scores.items(), key=lambda x: x[1], reverse=True)
+    top_riasec = [RIASEC_DIMENSIONS.get(dim, dim) for dim, _ in riasec_lists[:2]]
 
-    return f"""
-            用户RIASEC分数:R={riasec_scores['R']}, I={riasec_scores['I']}, A={riasec_scores['A']}, S={riasec_scores['S']}, E={riasec_scores['E']}, C={riasec_scores['C']}
-            用户感兴趣的专业为:{top_interests}, 分数越高兴趣越浓
-            综合用户的RIASEC分数和兴趣偏好,推荐的专业有:{recommended_majors}
-            请根据以上信息生成一份分析报告，包含：
-            1. 用户的性格特点分析
-            2. 为什么推荐这些专业
-            3. 兴趣与推荐是否吻合的分析
-            """
+
+    return f"""用户RIASEC优势维度: {"、".join(top_riasec)}
+用户兴趣:{"、".join(top_interests)}
+推荐专业:{"、".join(recommended_majors)}
+请解释为什么用户应该选择这些专业，分析理由、兴趣联系和就业前景
+"""
 async def generate_interpretation(riasec_scores: dict, recommendations: list, interest_scores: dict) -> str:
     prompt = build_prompt(riasec_scores, recommendations, interest_scores)
     response = await client.chat.completions.create(
         model = "deepseek-chat",
         messages = [
-            {"role": "system", "content": "你是一个职业规划专家，帮助用户分析职业兴趣和推荐的专业。"},
+            {"role": "system", "content": "你是张雪峰，著名高考志愿填报专家。风格直接、幽默、接地气。输出不超过400字，不使用任何Markdown格式，直接输出纯文字。"},
             {"role": "user", "content": prompt}
         ],
         max_tokens = 1000,

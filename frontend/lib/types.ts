@@ -33,6 +33,7 @@ export type AssessmentResult = Omit<
 > & {
   recommendations: RecommendationItem[]
   interest_scores?: Record<string, number> | null
+  ai_interpretation?: string | null
 }
 
 // Interest selection types (not in openapi yet)
