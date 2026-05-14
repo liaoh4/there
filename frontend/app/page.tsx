@@ -21,15 +21,15 @@ export default function HomePage() {
           <ul className="space-y-2 text-sm text-gray-500">
             <li className="flex items-start gap-2">
               <span className="text-indigo-400 mt-0.5">•</span>
-              分析阶段：24 道题测量你的 RIASEC 职业性格类型
+              两阶段测评，兴趣+能力分析 (约10分钟)
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-400 mt-0.5">•</span>
-              综合两项结果推荐最匹配的专业，并提供详细的兴趣与能力分析报告
+              综合两项结果推荐最匹配的专业,并提供详细的分析报告和AI解读
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-400 mt-0.5">•</span>
-              完全匿名，无需注册登录，结果页可保存链接
+              完全匿名，无需注册登录
             </li>
           </ul>
         </div>

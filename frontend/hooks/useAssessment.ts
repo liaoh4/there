@@ -11,6 +11,7 @@ import {
 } from "@/lib/api"
 import { drawQuestions, type Question } from "@/lib/questions"
 import type { AssessmentResult, InterestRoundResponse } from "@/lib/types"
+import { flushSync } from "react-dom"
 
 type Phase = "loading" | "interest" | "riasec" | "submitting" | "done" | "error"
 
@@ -96,7 +97,10 @@ export function useAssessment() {
         return
       }
 
-      setPhase("submitting")
+      flushSync(() => {
+        setPhase("submitting")
+      })
+      
       try {
         const responses = Object.entries(newAnswers).map(([qid, ans]) => ({
           question_id: qid,
@@ -107,6 +111,7 @@ export function useAssessment() {
         const assessmentResult = await completeSession(sessionId)
         setResult(assessmentResult)
         setPhase("done")
+
       } catch (e) {
         setErrorMsg((e as Error).message)
         setPhase("error")

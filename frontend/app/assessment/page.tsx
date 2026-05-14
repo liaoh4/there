@@ -8,6 +8,8 @@ import QuestionCard from "@/components/assessment/QuestionCard"
 import Progress from "@/components/ui/Progress"
 import { useAssessment } from "@/hooks/useAssessment"
 
+
+
 export default function AssessmentPage() {
   const router = useRouter()
   const {
@@ -47,8 +49,9 @@ export default function AssessmentPage() {
 
   if (phase === "submitting") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400">正在计算结果...</p>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-500 animate-spin" />
+        <p className="text-gray-700 mt-4">正在提交你的答案...</p>
       </div>
     )
   }
@@ -68,11 +71,7 @@ export default function AssessmentPage() {
             </p>
           </div>
 
-          {isProcessing && (
-            <p className="text-center text-sm text-indigo-400 mb-4">加载下一轮...</p>
-          )}
-
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {currentRound.options.map((opt) => (
               <CategoryCard
                 key={opt.category_code}
@@ -94,7 +93,7 @@ export default function AssessmentPage() {
   // RIASEC phase
   if (phase === "riasec" && currentQuestion) {
     return (
-      <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
+      <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-start pt-16 p-6">
         <div className="w-full max-w-lg">
           <div className="text-center mb-2">
             <p className="text-xs text-indigo-400 font-medium">第二阶段：性格与能力分析</p>
