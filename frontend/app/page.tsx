@@ -23,6 +23,10 @@ export default function HomePage() {
               <span className="text-indigo-400 mt-0.5">•</span>
               两阶段测评，兴趣+能力分析 (约10分钟)
             </li>
+              <li className="flex items-start gap-2">
+              <span className="text-indigo-400 mt-0.5">•</span>
+              每题选完自动进入下一题，不支持返回修改，请根据第一反应作答
+            </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-400 mt-0.5">•</span>
               综合两项结果推荐最匹配的专业,并提供详细的分析报告和AI解读

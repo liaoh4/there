@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     TOP_N_RECOMMENDATIONS: int = 4
 
     # 跨域白名单：允许哪些前端地址访问后端
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: list[str] = ["*"]
 
     # Neo4j（v2 用，现在不设置也不会报错）
     NEO4J_URL: str = ""

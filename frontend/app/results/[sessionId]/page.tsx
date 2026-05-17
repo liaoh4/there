@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation"
 
+import ShareButton from "@/components/results/ShareButton"
 import MajorCard from "@/components/results/MajorCard"
 import RiasecRadar from "@/components/results/RiasecRadar"
 import { getResult } from "@/lib/api"
 import { DIMENSION_MAP } from "@/lib/riasec"
 import type { RiasecDimension } from "@/lib/types"
 import  AIInterpretation from "@/components/results/AIInterpretation"
-
+import Link from "next/link"
 // Maps for interest category names
 const INTEREST_CATEGORY_NAMES: Record<string, string> = {
   "02": "艺术与人文",
@@ -35,6 +36,7 @@ interface Props {
 
 export default async function ResultsPage({ params }: Props) {
   const { sessionId } = await params
+  const shareUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/results/${sessionId}`
 
   let result
   try {
@@ -141,7 +143,14 @@ export default async function ResultsPage({ params }: Props) {
 
         {/* AI解读 */}
         {ai_interpretation && <AIInterpretation interpretation={ai_interpretation} />}
-      
+        
+        <div className="flex flex-col gap-3">
+          <ShareButton url={shareUrl} />
+          <Link href="/assessment" className="flex-1 py-3 text-gray-400 text-center rounded-2xl hover:text-gray-600 transition-colors"
+
+>重新测评</Link>
+        </div>
+
       </div>
     </main>
   )
